@@ -31,7 +31,7 @@ print(text)  # "Bonjour, le monde!"
 
 # Translate multiple texts efficiently
 texts = ["Hello", "Goodbye", "Thank you"]
-translations = t.translate_batch(texts)
+translations = t.translate(texts)
 print(translations)
 # {"Hello": "Bonjour", "Goodbye": "Au revoir", "Thank you": "Merci"}
 ```
@@ -71,10 +71,11 @@ translator = Translator(
 ### Single Translation
 
 ```python
-# Using the callable interface
+# Using the callable interface (single string)
 result = translator("Hello")
+print(result)  # "Bonjour"
 
-# Using the translate method (array input only)
+# Using the translate method (list input)
 result = translator.translate(["Hello"])
 hello_translated = result["Hello"]
 
@@ -210,7 +211,7 @@ texts = [
     "Cancel"
 ]
 
-translations = translator.translate_batch(texts, target_locale="es")
+translations = translator.translate(texts, target_locale="es")
 
 for original, translated in translations.items():
     print(f"{original} -> {translated}")
@@ -431,67 +432,6 @@ except NetworkError as e:
     print(f"Network error: {e}")
 ```
 
-## Common Patterns
-
-### Template-Based Translation
-
-For applications with many similar messages, create reusable templates:
-
-```python
-# Define common templates
-TEMPLATES = {
-    'welcome': "Welcome, {{name}}!",
-    'item_count': "You have {{count}} items.",
-    'error': "Error: {{message}}. Please try again.",
-    'success': "{{action}} completed successfully!",
-    'notification': "{{name}}, you have {{count}} new {{type}}."
-}
-
-def get_message(template_key, **params):
-    """Get translated message from template"""
-    template = TEMPLATES.get(template_key, template_key)
-    translated = translator(template)
-
-    for key, value in params.items():
-        placeholder = "{{" + key + "}}"
-        translated = translated.replace(placeholder, str(value))
-
-    return translated
-
-# Usage
-welcome_msg = get_message('welcome', name='Alice')
-error_msg = get_message('error', message='Connection timeout')
-notification = get_message('notification', name='Bob', count=5, type='messages')
-```
-
-### Pluralization Handling
-
-Handle singular/plural forms properly:
-
-```python
-def translate_count_message(count, singular_template, plural_template, **params):
-    """Handle pluralization in translations"""
-    template = singular_template if count == 1 else plural_template
-    translated = translator(template)
-
-    # Add count to parameters
-    params['count'] = count
-
-    for key, value in params.items():
-        placeholder = "{{" + key + "}}"
-        translated = translated.replace(placeholder, str(value))
-
-    return translated
-
-# Usage
-message = translate_count_message(
-    count=1,
-    singular_template="You have {{count}} new message from {{sender}}.",
-    plural_template="You have {{count}} new messages from {{sender}}.",
-    sender="Alice"
-)
-```
-
 ## How It Works
 
 1. **Check Cache**: First checks in-memory cache for existing translation
@@ -506,31 +446,36 @@ This approach minimizes API calls and ensures fast response times for repeated t
 
 ### Translator Class
 
-#### `__init__(api_key, source_locale="en", target_locale="fr", cache_ttl=30, cache_enabled=True, shared_cache=True)`
+#### `__init__(api_key, source_locale="en", target_locale="fr", cache_ttl=3600, cache_enabled=True, shared_cache=True)`
 
 Initialize a new translator instance.
 
-- `shared_cache=True`: Use global shared cache (recommended for web apps)
-- `shared_cache=False`: Use instance-specific cache (for isolation)
+**Parameters:**
+
+- `api_key` (str): Your AutoLocalise API key
+- `source_locale` (str): Source language code (default: "en")
+- `target_locale` (str): Target language code (default: "fr")
+- `cache_ttl` (int): Request timeout in seconds (default: 3600)
+- `cache_enabled` (bool): Enable caching (default: True)
+- `shared_cache` (bool): Use global shared cache (default: True)
 
 #### `translate(texts, target_locale=None, source_locale=None)`
 
 Translate multiple strings (array input only).
 
-- **Single string input**: Returns translated string
-- **List input**: Returns dictionary mapping original to translated text
+**Parameters:**
 
-#### `translate_batch(texts, target_locale=None, source_locale=None)`
+- `texts` (str or List[str]): Text(s) to translate
+- `target_locale` (str, optional): Override target language
+- `source_locale` (str, optional): Override source language
 
-Translate multiple strings (backward compatibility - same as translate).
+**Returns:**
 
-#### `__call__(texts, target_locale=None, source_locale=None)`
-
-Callable interface for translation (array input only).
+- Returns dict mapping original to translated text
 
 #### `clear_cache()`
 
-Clear the translation cache for this instance's language pair.
+Clear cached translations for this instance's language pair.
 
 #### `clear_global_cache()` (class method)
 
@@ -540,9 +485,16 @@ Clear the entire global shared cache (affects all instances).
 
 Get the number of cached translations.
 
+**Returns:** int - Number of cached translation pairs
+
 #### `set_languages(source_locale, target_locale)`
 
-Update source and target languages.
+Update source and target languages for this instance.
+
+**Parameters:**
+
+- `source_locale` (str): New source language code
+- `target_locale` (str): New target language code
 
 ## Development
 
@@ -577,4 +529,4 @@ MIT License - see LICENSE file for details.
 
 ## Support
 
-For support, please contact support@autolocalise.com or visit our documentation at https://docs.autolocalise.com.
+For support, please contact at https://www.autolocalise.com/support
