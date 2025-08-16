@@ -15,36 +15,36 @@ logger = logging.getLogger(__name__)
 
 class Translator:
     """AutoLocalise translator client"""
-    
+
     def __init__(
         self,
         api_key: str,
-        source_locale: str ,
-        target_locale: str ,
+        source_locale: str,
+        target_locale: str,
         cache_ttl: int = 3600,
         cache_enabled: bool = True,
-        shared_cache: bool = True
+        shared_cache: bool = True,
     ):
         """
         Initialize AutoLocalise translator
-        
+
         Args:
             api_key: Your AutoLocalise API key
             source_locale: Source language code
-            target_locale: Target language code 
+            target_locale: Target language code
             cache_ttl: Request timeout in seconds (default: 3600, 1hour)
             cache_enabled: Enable in-memory caching (default: True)
             shared_cache: Use global shared cache across instances (default: True)
         """
         if not api_key:
             raise ConfigurationError("API key is required")
-        
+
         if not source_locale:
             raise ConfigurationError("Source Locale is required")
 
         if not target_locale:
             raise ConfigurationError("Target Locale is required")
-        
+
         self.api_key = api_key
         self.source = source_locale
         self.target = target_locale
@@ -52,44 +52,46 @@ class Translator:
         self.timeout = cache_ttl
         self.cache_enabled = cache_enabled
         self.shared_cache = shared_cache
-        
+
         if cache_enabled:
             if shared_cache:
                 from .cache import get_global_cache
+
                 self._cache = get_global_cache()
             else:
                 self._cache = TranslationCache()
         else:
             self._cache = None
         self._session = requests.Session()
-        self._session.headers.update({
-            "Content-Type": "application/json",
-            "User-Agent": f"autolocalise-python-sdk/{__version__}"
-        })
-        
+        self._session.headers.update(
+            {
+                "Content-Type": "application/json",
+                "User-Agent": f"autolocalise-python-sdk/{__version__}",
+            }
+        )
+
         # Pre-populate cache with existing translations from server
         if self._cache:
             self._populate_cache_from_server()
-    
+
     def _populate_cache_from_server(self):
         """Populate cache with existing translations from server during initialization"""
         try:
             response = self._session.post(
                 f"{self.base_url}/v1/translations",
-                json={
-                    "apiKey": self.api_key,
-                    "targetLocale": self.target
-                },
-                timeout=self.timeout
+                json={"apiKey": self.api_key, "targetLocale": self.target},
+                timeout=self.timeout,
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 hash_translations = data.get("translations", {})
                 if hash_translations:
                     # Store hash-based translations for later lookup
                     self._server_translations = hash_translations
-                    logger.debug(f"Server has {len(hash_translations)} existing translations available")
+                    logger.debug(
+                        f"Server has {len(hash_translations)} existing translations available"
+                    )
                 else:
                     self._server_translations = {}
             elif response.status_code == 404:
@@ -100,62 +102,69 @@ class Translator:
         except Exception as e:
             self._server_translations = {}
             logger.warning(f"Failed to check server translations: {e}")
-    
-    def __call__(self, texts: List[str], target_locale: Optional[str] = None, source_locale: Optional[str] = None) -> Dict[str, str]:
+
+    def __call__(
+        self,
+        texts: List[str],
+        target_locale: Optional[str] = None,
+        source_locale: Optional[str] = None,
+    ) -> Dict[str, str]:
         """
         Translate texts (callable interface)
-        
+
         Args:
             texts: List of texts to translate
             target_locale: Target language (optional, uses instance default)
             source_locale: Source language (optional, uses instance default)
-            
+
         Returns:
             Dictionary mapping original text to translated text
         """
-        return self.translate(texts, target_locale=target_locale, source_locale=source_locale)
-    
+        return self.translate(
+            texts, target_locale=target_locale, source_locale=source_locale
+        )
+
     def translate(
-        self, 
-        texts: List[str], 
-        target_locale: Optional[str] = None, 
-        source_locale: Optional[str] = None
+        self,
+        texts: List[str],
+        target_locale: Optional[str] = None,
+        source_locale: Optional[str] = None,
     ) -> Dict[str, str]:
         """
         Translate multiple texts
-        
+
         Args:
             texts: List of texts to translate
             target_locale: Target language (optional, uses instance default)
             source_locale: Source language (optional, uses instance default)
-            
+
         Returns:
             Dictionary mapping original text to translated text
         """
         if not texts:
             return {}
-        
+
         source_lang = source_locale or self.source
         target_lang = target_locale or self.target
-        
+
         # Filter out empty strings and check cache
         texts_to_translate = []
         results = {}
-        
+
         for text in texts:
             if not text or not text.strip():
                 results[text] = text
                 continue
-                
+
             # Check local cache first
             if self._cache:
                 cached = self._cache.get(text, source_lang, target_lang)
                 if cached is not None:
                     results[text] = cached
                     continue
-            
+
             # Check server translations if available
-            if hasattr(self, '_server_translations') and self._server_translations:
+            if hasattr(self, "_server_translations") and self._server_translations:
                 text_hash = self._generate_hash(text)
                 if text_hash in self._server_translations:
                     translation = self._server_translations[text_hash]
@@ -164,35 +173,35 @@ class Translator:
                     if self._cache:
                         self._cache.set(text, translation, source_lang, target_lang)
                     continue
-            
+
             texts_to_translate.append(text)
-        
+
         # If all texts were cached, return results
         if not texts_to_translate:
             return results
-        
+
         # Translate all texts (cache misses)
         try:
             if texts_to_translate:
                 new_translations = self._translate_texts(
                     texts_to_translate, source_lang, target_lang
                 )
-                
+
                 # Update results and cache with new translations
                 for text, translation in new_translations.items():
                     results[text] = translation
                     if self._cache:
                         self._cache.set(text, translation, source_lang, target_lang)
-            
+
         except Exception as e:
             logger.warning(f"Translation failed: {e}")
             # Fallback: return original texts for untranslated items
             for text in texts_to_translate:
                 if text not in results:
                     results[text] = text
-        
+
         return results
-    
+
     def _generate_hash(self, text: str) -> str:
         """Generate hash for text (matches React SDK implementation)"""
         hash_value = 0
@@ -204,7 +213,7 @@ class Translator:
             if hash_value > 0x7FFFFFFF:
                 hash_value -= 0x100000000
         return str(hash_value)
-    
+
     def _translate_texts(
         self, texts: List[str], source_lang: str, target_lang: str
     ) -> Dict[str, str]:
@@ -214,17 +223,15 @@ class Translator:
             text_objects = []
             text_to_hash = {}
             hash_to_text = {}
-            
+
             for text in texts:
                 hash_key = self._generate_hash(text)
-                text_objects.append({
-                    "hashkey": hash_key,
-                    "text": text,
-                    "persist": True
-                })
+                text_objects.append(
+                    {"hashkey": hash_key, "text": text, "persist": True}
+                )
                 text_to_hash[text] = hash_key
                 hash_to_text[hash_key] = text
-            
+
             response = self._session.post(
                 f"{self.base_url}/v1/translate",
                 json={
@@ -232,15 +239,17 @@ class Translator:
                     "sourceLocale": source_lang,
                     "targetLocale": target_lang,
                     "apiKey": self.api_key,
-                    "version": f"python-sdk-v{__version__}"
+                    "version": f"python-sdk-v{__version__}",
                 },
-                timeout=self.timeout
+                timeout=self.timeout,
             )
             if response.status_code == 200:
                 data = response.json()
                 # The API returns translations directly, not nested under "translations" key
-                hash_translations = data.get("translations", data)  # Fallback to data itself if no "translations" key
-                
+                hash_translations = data.get(
+                    "translations", data
+                )  # Fallback to data itself if no "translations" key
+
                 # Convert hash-based response back to text-based
                 text_translations = {}
                 for hash_key, translation in hash_translations.items():
@@ -250,12 +259,12 @@ class Translator:
                 return text_translations
             else:
                 self._handle_api_error(response)
-                
+
         except requests.exceptions.RequestException as e:
             raise NetworkError(f"Failed to translate texts: {e}")
-        
+
         return {}
-    
+
     def _handle_api_error(self, response: requests.Response):
         """Handle API error responses"""
         try:
@@ -263,9 +272,11 @@ class Translator:
             message = error_data.get("error", f"API error: {response.status_code}")
         except (ValueError, json.JSONDecodeError):
             message = f"API error: {response.status_code} - {response.text}"
-        
-        raise APIError(message, status_code=response.status_code, response_data=error_data)
-    
+
+        raise APIError(
+            message, status_code=response.status_code, response_data=error_data
+        )
+
     def clear_cache(self):
         """Clear translation cache (instance or global depending on shared_cache setting)"""
         if self._cache:
@@ -275,18 +286,19 @@ class Translator:
                 self._cache.clear(self.source, self.target)
             else:
                 self._cache.clear()
-    
+
     @classmethod
     def clear_global_cache(cls):
         """Clear the entire global shared cache"""
         from .cache import get_global_cache
+
         cache = get_global_cache()
         cache.clear()
-    
+
     def cache_size(self) -> int:
         """Get number of cached translations"""
         return self._cache.size() if self._cache else 0
-    
+
     def set_languages(self, source_locale: str, target_locale: str):
         """Update source and target languages"""
         self.source = source_locale

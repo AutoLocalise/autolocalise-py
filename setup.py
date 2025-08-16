@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="autolocalise",
-    version="0.1.0",
+    version="0.1.1",
     author="AutoLocalise",
     author_email="support@autolocalise.com",
     description="Python SDK for AutoLocalise translation service",
@@ -20,14 +20,13 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
 
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     install_requires=[
         "requests>=2.25.0",
     ],
