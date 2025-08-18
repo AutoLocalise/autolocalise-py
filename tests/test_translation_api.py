@@ -1,11 +1,9 @@
 """Tests for translation API interactions"""
 
-import pytest
 import requests
 from unittest.mock import Mock, patch
 
 from autolocalise import Translator, __version__
-from autolocalise.exceptions import APIError, NetworkError
 
 
 class TestTranslationAPI:

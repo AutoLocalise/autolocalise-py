@@ -59,7 +59,6 @@ class TestTemplateSupport:
         assert "dashboard" in result  # Parameter preserved
         assert "bonjour Alice, bienvenue to dashboard vue" == result
 
-
     def test_template_without_parameters(self, mock_translator):
         """Test template without any parameters"""
         template = Template("This is a simple message.")
@@ -86,13 +85,15 @@ class TestTemplateSupport:
 
     def test_mixed_parameter_syntax(self, mock_translator):
         """Test template with both $var and ${var} syntax"""
-        template = Template("Hello $name, welcome to ${location_name} view! You have $count items.")
+        template = Template(
+            "Hello $name, welcome to ${location_name} view! You have $count items."
+        )
         result = mock_translator.translate_template(
             template, name="Bob", location_name="admin", count=42
         )
 
         assert "Bob" in result
-        assert "admin" in result  
+        assert "admin" in result
         assert "42" in result
         assert "Bonjour Bob, bienvenue to admin vue! You have 42 articles." == result
 
