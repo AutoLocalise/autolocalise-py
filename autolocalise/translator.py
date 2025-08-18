@@ -2,7 +2,9 @@
 
 import json
 import logging
-from typing import Dict, List, Optional, Union
+import re
+from string import Template
+from typing import Dict, List, Optional
 import requests
 
 from .cache import TranslationCache
@@ -303,3 +305,85 @@ class Translator:
         """Update source and target languages"""
         self.source = source_locale
         self.target = target_locale
+
+    def translate_template(
+        self,
+        template: Template,
+        target_locale: Optional[str] = None,
+        source_locale: Optional[str] = None,
+        **params,
+    ) -> str:
+        """
+        Translate a Python Template with parameter protection.
+
+        Parameters are replaced with unique placeholders during translation
+        to ensure they are not translated, then restored in the final result.
+
+        Args:
+            template: Python string.Template object
+            target_locale: Target language (optional, uses instance default)
+            source_locale: Source language (optional, uses instance default)
+            **params: Template parameters (protected from translation)
+
+        Returns:
+            Translated text with parameters substituted
+
+        Example:
+            template = Template("Hello $name, you have $count messages!")
+            result = translator.translate_template(template, name="John", count=5)
+            # Returns: "Bonjour John, vous avez 5 messages!"
+        """
+        if not isinstance(template, Template):
+            raise ValueError("First argument must be a string.Template object")
+
+        # Get the template string
+        template_str = template.template
+
+        # If no parameters provided, just translate the template string directly
+        if not params:
+            result = self.translate([template_str], target_locale, source_locale)
+            return result[template_str]
+
+        # Step 1: Extract template variables and create placeholder mapping
+        # Find all $identifier and ${identifier} patterns in the template
+        var_pattern = re.compile(
+            r"\$(?P<named>[_a-z][_a-z0-9]*)|" r"\$\{(?P<braced>[_a-z][_a-z0-9]*)\}",
+            re.IGNORECASE,
+        )
+
+        # Create unique placeholders for each parameter
+        placeholder_map = {}
+        reverse_placeholder_map = {}
+        param_counter = 1
+
+        for match in var_pattern.finditer(template_str):
+            var_name = match.group("named") or match.group("braced")
+            if var_name in params and var_name not in placeholder_map:
+                # Create a short, unique placeholder to minimize translation costs
+                # Format: X1X, X2X, etc. (unlikely to appear in real text)
+                placeholder = f"X{param_counter}X"
+                placeholder_map[var_name] = placeholder
+                reverse_placeholder_map[placeholder] = str(params[var_name])
+                param_counter += 1
+
+        # Step 2: Replace parameters with placeholders in template
+        protected_template_str = template_str
+        for var_name, placeholder in placeholder_map.items():
+            # Replace both $var and ${var} formats
+            protected_template_str = re.sub(
+                rf"\${var_name}\b|\${{{var_name}\}}",
+                placeholder,
+                protected_template_str,
+            )
+
+        # Step 3: Translate the protected template
+        translation_result = self.translate(
+            [protected_template_str], target_locale, source_locale
+        )
+        translated_text = translation_result[protected_template_str]
+
+        # Step 4: Restore original parameter values
+        for placeholder, param_value in reverse_placeholder_map.items():
+            translated_text = translated_text.replace(placeholder, param_value)
+
+        return translated_text

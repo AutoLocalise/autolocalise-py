@@ -1,8 +1,5 @@
 """Tests for cache functionality and thread safety"""
 
-import pytest
-import threading
-import time
 from unittest.mock import Mock, patch
 from concurrent.futures import ThreadPoolExecutor
 

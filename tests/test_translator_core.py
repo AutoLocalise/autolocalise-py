@@ -1,11 +1,10 @@
 """Tests for core Translator functionality"""
 
 import pytest
-import requests
 from unittest.mock import Mock, patch
 
 from autolocalise import Translator
-from autolocalise.exceptions import APIError, NetworkError, ConfigurationError
+from autolocalise.exceptions import ConfigurationError
 
 
 class TestTranslatorCore:
