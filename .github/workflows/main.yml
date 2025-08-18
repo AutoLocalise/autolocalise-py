@@ -67,7 +67,7 @@ jobs:
       - name: Get version
         id: get_version
         run: |
-          VERSION=$(python -c "import re; content=open('setup.py').read(); print(re.search(r'version=\"([^\"]*)\"', content).group(1))")
+          VERSION=$(python -c "import re; content=open('autolocalise/_version.py').read(); print(re.search(r'__version__ = \"([^\"]*)\"', content).group(1))")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Building version: $VERSION"
 
@@ -97,7 +97,7 @@ jobs:
       - name: Get version
         id: get_version
         run: |
-          VERSION=$(python -c "import re; content=open('setup.py').read(); print(re.search(r'version=\"([^\"]*)\"', content).group(1))")
+          VERSION=$(python -c "import re; content=open('autolocalise/_version.py').read(); print(re.search(r'__version__ = \"([^\"]*)\"', content).group(1))")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Download artifacts
@@ -132,7 +132,7 @@ jobs:
       - name: Get version
         id: get_version
         run: |
-          VERSION=$(python -c "import re; content=open('setup.py').read(); print(re.search(r'version=\"([^\"]*)\"', content).group(1))")
+          VERSION=$(python -c "import re; content=open('autolocalise/_version.py').read(); print(re.search(r'__version__ = \"([^\"]*)\"', content).group(1))")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Download artifacts
