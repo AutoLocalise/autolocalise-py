@@ -121,7 +121,7 @@ jobs:
 
   # Publish to PyPI (production - only from releases)
   publish-pypi:
-    needs: [build, publish-testpypi]
+    needs: build
     runs-on: ubuntu-latest
     if: |
       (github.event_name == 'workflow_dispatch' && inputs.publish_target == 'PyPI (production release)') ||
