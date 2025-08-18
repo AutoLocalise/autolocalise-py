@@ -1,11 +1,25 @@
 from setuptools import setup, find_packages
+import os
+import re
+
+# Read version from _version.py
+here = os.path.abspath(os.path.dirname(__file__))
+with open(
+    os.path.join(here, "autolocalise", "_version.py"), "r", encoding="utf-8"
+) as f:
+    version_content = f.read()
+    version_match = re.search(r'__version__ = "([^"]*)"', version_content)
+    if version_match:
+        version = version_match.group(1)
+    else:
+        raise RuntimeError("Unable to find version string in _version.py")
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
     name="autolocalise",
-    version="0.1.1",
+    version=version,
     author="AutoLocalise",
     author_email="support@autolocalise.com",
     description="Python SDK for AutoLocalise translation service",
@@ -19,7 +33,6 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
