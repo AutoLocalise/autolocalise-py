@@ -45,6 +45,71 @@ class TestCacheBasics:
         for english, french in translations.items():
             assert cache.get(english, "en", "fr") == french
 
+    def test_batch_operations_with_eviction(self):
+        """Test batch operations trigger eviction when cache is full"""
+        cache = TranslationCache(max_size=5)
+
+        # Fill cache to max size
+        for i in range(5):
+            cache.set(f"text_{i}", f"translation_{i}", "en", "fr")
+
+        assert cache.size() == 5
+
+        # Add batch that would exceed max size
+        batch = {"new_1": "trans_1", "new_2": "trans_2"}
+        cache.set_batch(batch, "en", "fr")
+
+        # Should still be at max size (5 entries)
+        assert cache.size() == 5
+
+        # New entries should be present
+        assert cache.get("new_1", "en", "fr") == "trans_1"
+        assert cache.get("new_2", "en", "fr") == "trans_2"
+
+        # Oldest entries should have been evicted
+        assert cache.get("text_0", "en", "fr") is None
+        assert cache.get("text_1", "en", "fr") is None
+
+    def test_batch_operations_overwrite(self):
+        """Test batch operations can overwrite existing entries"""
+        cache = TranslationCache()
+
+        # Set initial translations
+        cache.set("Hello", "Bonjour", "en", "fr")
+        cache.set("Goodbye", "Au revoir", "en", "fr")
+        assert cache.size() == 2
+
+        # Batch update with some new and some existing
+        batch = {
+            "Hello": "Salut",  # Overwrite
+            "Thank you": "Merci",  # New
+        }
+        cache.set_batch(batch, "en", "fr")
+
+        # Should have 3 entries (Goodbye + Hello + Thank you)
+        assert cache.size() == 3
+
+        # Hello should be updated
+        assert cache.get("Hello", "en", "fr") == "Salut"
+        # Goodbye should remain
+        assert cache.get("Goodbye", "en", "fr") == "Au revoir"
+        # Thank you should be new
+        assert cache.get("Thank you", "en", "fr") == "Merci"
+
+    def test_batch_operations_empty(self):
+        """Test batch operations with empty dictionary"""
+        cache = TranslationCache()
+
+        cache.set("Hello", "Bonjour", "en", "fr")
+        assert cache.size() == 1
+
+        # Add empty batch
+        cache.set_batch({}, "en", "fr")
+
+        # Size should remain the same
+        assert cache.size() == 1
+        assert cache.get("Hello", "en", "fr") == "Bonjour"
+
     def test_clear_operations(self):
         """Test cache clearing operations"""
         cache = TranslationCache()
@@ -133,9 +198,7 @@ class TestCacheThreadSafety:
         assert cache1 is cache2
 
         # Should be the same instance used by translators
-        translator = Translator(
-            api_key="test", source_locale="en", target_locale="fr", shared_cache=True
-        )
+        translator = Translator(api_key="test", source_locale="en", target_locale="fr")
         assert translator._cache is cache1
 
 
@@ -148,18 +211,16 @@ class TestSharedCache:
 
     def test_shared_cache_between_instances(self):
         """Test that multiple translator instances share the same cache"""
-        # Create two translator instances with shared cache
+        # Create two translator instances
         t1 = Translator(
             api_key="test-key-1",
             source_locale="en",
             target_locale="fr",
-            shared_cache=True,
         )
         t2 = Translator(
             api_key="test-key-2",
             source_locale="en",
             target_locale="fr",
-            shared_cache=True,
         )
 
         # They should use the same cache instance
@@ -174,67 +235,33 @@ class TestSharedCache:
         # Cache size should be consistent
         assert t1.cache_size() == t2.cache_size() == 1
 
-    def test_independent_cache_instances(self):
-        """Test that instances with shared_cache=False have independent caches"""
+    def test_mixed_cache_modes(self):
+        """Test that all instances share the same cache"""
         t1 = Translator(
-            api_key="test-key-1",
+            api_key="shared-1",
             source_locale="en",
             target_locale="fr",
-            shared_cache=False,
         )
         t2 = Translator(
-            api_key="test-key-2",
+            api_key="shared-2",
             source_locale="en",
             target_locale="fr",
-            shared_cache=False,
         )
-
-        # They should use different cache instances
-        assert t1._cache is not t2._cache
+        t3 = Translator(
+            api_key="shared-3",
+            source_locale="en",
+            target_locale="fr",
+        )
 
         # Add translation via first instance
         t1._cache.set("Hello", "Bonjour", "en", "fr")
 
-        # Second instance should not see the translation
-        assert t2._cache.get("Hello", "en", "fr") is None
+        # All instances should see it
+        assert t2._cache.get("Hello", "en", "fr") == "Bonjour"
+        assert t3._cache.get("Hello", "en", "fr") == "Bonjour"
 
-        # Cache sizes should be different
-        assert t1.cache_size() == 1
-        assert t2.cache_size() == 0
-
-    def test_mixed_cache_modes(self):
-        """Test mixing shared and non-shared cache instances"""
-        shared1 = Translator(
-            api_key="shared-1",
-            source_locale="en",
-            target_locale="fr",
-            shared_cache=True,
-        )
-        shared2 = Translator(
-            api_key="shared-2",
-            source_locale="en",
-            target_locale="fr",
-            shared_cache=True,
-        )
-        independent = Translator(
-            api_key="independent",
-            source_locale="en",
-            target_locale="fr",
-            shared_cache=False,
-        )
-
-        # Add translation via shared cache
-        shared1._cache.set("Hello", "Bonjour", "en", "fr")
-
-        # Shared instances should see it
-        assert shared2._cache.get("Hello", "en", "fr") == "Bonjour"
-
-        # Independent instance should not
-        assert independent._cache.get("Hello", "en", "fr") is None
-
-        # Cache sizes
-        assert shared1.cache_size() == shared2.cache_size() == 1
-        assert independent.cache_size() == 0
+        # Cache sizes should be the same
+        assert t1.cache_size() == t2.cache_size() == t3.cache_size() == 1
 
     def test_concurrent_shared_cache_access(self):
         """Test concurrent access to shared cache from multiple threads"""
@@ -245,7 +272,6 @@ class TestSharedCache:
                 api_key=f"key-{thread_id}",
                 source_locale="en",
                 target_locale="fr",
-                shared_cache=True,
             )
 
             # Each thread adds some translations
@@ -276,7 +302,7 @@ class TestSharedCache:
 
         # Final cache should contain all translations
         final_translator = Translator(
-            api_key="final", source_locale="en", target_locale="fr", shared_cache=True
+            api_key="final", source_locale="en", target_locale="fr"
         )
         assert final_translator.cache_size() == 50  # 5 threads * 10 translations
 
@@ -300,13 +326,11 @@ class TestSharedCache:
             api_key="test-key-1",
             source_locale="en",
             target_locale="fr",
-            shared_cache=True,
         )
         t2 = Translator(
             api_key="test-key-2",
             source_locale="en",
             target_locale="fr",
-            shared_cache=True,
         )
 
         # First translation should hit API
@@ -337,7 +361,6 @@ class TestCacheOperations:
             api_key="test-key",
             source_locale="en",
             target_locale="fr",
-            shared_cache=False,
         )
 
         # Initially empty
@@ -353,12 +376,8 @@ class TestCacheOperations:
 
     def test_clear_cache_behavior(self):
         """Test different cache clearing behaviors"""
-        t1 = Translator(
-            api_key="key-1", source_locale="en", target_locale="fr", shared_cache=True
-        )
-        t2 = Translator(
-            api_key="key-2", source_locale="en", target_locale="es", shared_cache=True
-        )
+        t1 = Translator(api_key="key-1", source_locale="en", target_locale="fr")
+        t2 = Translator(api_key="key-2", source_locale="en", target_locale="es")
 
         # Add translations for different language pairs
         t1._cache.set("Hello", "Bonjour", "en", "fr")

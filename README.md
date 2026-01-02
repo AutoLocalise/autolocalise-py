@@ -153,13 +153,50 @@ async def welcome_user(user_name: str):
 
 ### Translator Class
 
-#### `__init__(api_key, source_locale="en", target_locale="fr", cache_ttl=3600, cache_enabled=True, shared_cache=True)`
+#### `__init__(api_key, source_locale, target_locale)`
 
 Initialize a new translator instance.
+
+**Parameters:**
+- `api_key` (str): Your AutoLocalise API key
+- `source_locale` (str): Source language code (e.g., "en")
+- `target_locale` (str): Target language code (e.g., "fr")
+
+**Raises:**
+- `ConfigurationError`: If required parameters are missing
 
 #### `translate(texts, target_locale=None, source_locale=None)`
 
 Translate multiple strings.
+
+**Parameters:**
+- `texts` (List[str]): List of strings to translate
+- `target_locale` (str, optional): Target language code (overrides instance default)
+- `source_locale` (str, optional): Source language code (overrides instance default)
+
+**Returns:** Dict[str, str] - Dictionary mapping original text to translated text
+
+**Behavior:**
+- Non-string values are silently skipped
+- Empty strings are returned as-is
+
+**Raises:**
+- `ValueError`: If any text exceeds 10,000 characters
+
+**Example:**
+```python
+# Valid strings
+result = translator.translate(["Hello", "World"])
+# Returns: {"Hello": "Bonjour", "World": "Monde"}
+
+# Mixed valid and invalid inputs
+result = translator.translate(["Hello", 123, ""])
+# Returns: {"Hello": "Bonjour", "": ""}
+# Note: 123 is skipped (not a string)
+
+# Text too long
+translator.translate(["a" * 10001])  # Raises: ValueError
+```
 
 #### `translate_template(template, **params)`
 

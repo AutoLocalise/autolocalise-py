@@ -49,7 +49,8 @@ class TestTemplateSupport:
         return translator
 
     def test_simple_template_example(self, mock_translator):
-        """Test simple template example: hello $name, welcome to ${location_name} view"""
+        """Test simple template example: hello $name, welcome to
+        ${location_name} view"""
         template = Template("hello $name, welcome to ${location_name} view")
         result = mock_translator.translate_template(
             template, name="Alice", location_name="dashboard"
