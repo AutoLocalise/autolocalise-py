@@ -1,8 +1,6 @@
 name: Publish to PyPI
 
 on:
-  release:
-    types: [published] # Auto-publish to PyPI when GitHub release is created
   push:
     tags:
       - 'v*' # Auto-publish to PyPI when a tag starting with v is pushed
