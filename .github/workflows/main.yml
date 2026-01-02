@@ -18,6 +18,9 @@ on:
   release:
     types: [published] # Auto-publish to PyPI when GitHub release is created
 
+permissions:
+  contents: read
+
 jobs:
   # Always run tests on any push/PR
   test:
