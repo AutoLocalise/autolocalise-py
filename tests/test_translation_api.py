@@ -42,7 +42,11 @@ class TestTranslationAPI:
         # Verify the /v1/translations call
         mock_post.assert_any_call(
             "https://autolocalise-main-53fde32.zuplo.app/v1/translations",
-            json={"apiKey": "test-key", "targetLocale": "fr", "version": f"py-v{__version__}"},
+            json={
+                "apiKey": "test-key",
+                "targetLocale": "fr",
+                "version": f"py-v{__version__}",
+            },
             timeout=30,
         )
 
@@ -106,7 +110,11 @@ class TestTranslationAPI:
         # Verify the /v1/translations call
         mock_post.assert_any_call(
             "https://autolocalise-main-53fde32.zuplo.app/v1/translations",
-            json={"apiKey": "test-key", "targetLocale": "fr", "version": f"py-v{__version__}"},
+            json={
+                "apiKey": "test-key",
+                "targetLocale": "fr",
+                "version": f"py-v{__version__}",
+            },
             timeout=30,
         )
 
@@ -156,12 +164,18 @@ class TestTranslationAPI:
         assert mock_post.call_count == 1
         mock_post.assert_called_with(
             "https://autolocalise-main-53fde32.zuplo.app/v1/translations",
-            json={"apiKey": "test-key", "targetLocale": "fr", "version": f"py-v{__version__}"},
+            json={
+                "apiKey": "test-key",
+                "targetLocale": "fr",
+                "version": f"py-v{__version__}",
+            },
             timeout=30,
         )
 
-        # Note: Cache won't be pre-populated since we don't know original texts for hashes
-        # This is expected behavior - cache will be populated as translations are requested
+        # Note: Cache won't be pre-populated since we don't know original texts
+        # for hashes
+        # This is expected behavior - cache will be populated as translations
+        # are requested
 
         # Test that we can still translate (will hit API since cache is empty)
         with patch("autolocalise.translator.requests.Session.post") as mock_translate:

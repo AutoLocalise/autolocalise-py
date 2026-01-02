@@ -93,7 +93,10 @@ class TestTranslatorCore:
 
         # Mixed valid and invalid text
         result = translator.translate(["Hello", 123, "World", None])
-        assert result == {"Hello": "Hello", "World": "World"}  # Fallback to original on API error
+        assert result == {
+            "Hello": "Hello",
+            "World": "World",
+        }  # Fallback to original on API error
 
     def test_callable_interface(self):
         """Test that translator can be called directly"""

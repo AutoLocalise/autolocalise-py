@@ -198,9 +198,7 @@ class TestCacheThreadSafety:
         assert cache1 is cache2
 
         # Should be the same instance used by translators
-        translator = Translator(
-            api_key="test", source_locale="en", target_locale="fr"
-        )
+        translator = Translator(api_key="test", source_locale="en", target_locale="fr")
         assert translator._cache is cache1
 
 
@@ -378,12 +376,8 @@ class TestCacheOperations:
 
     def test_clear_cache_behavior(self):
         """Test different cache clearing behaviors"""
-        t1 = Translator(
-            api_key="key-1", source_locale="en", target_locale="fr"
-        )
-        t2 = Translator(
-            api_key="key-2", source_locale="en", target_locale="es"
-        )
+        t1 = Translator(api_key="key-1", source_locale="en", target_locale="fr")
+        t2 = Translator(api_key="key-2", source_locale="en", target_locale="es")
 
         # Add translations for different language pairs
         t1._cache.set("Hello", "Bonjour", "en", "fr")
