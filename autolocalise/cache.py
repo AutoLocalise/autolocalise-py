@@ -22,8 +22,15 @@ def get_global_cache():
 class TranslationCache:
     """Thread-safe in-memory cache for translations"""
 
-    def __init__(self):
+    def __init__(self, max_size: int = 10000):
+        """
+        Initialize translation cache
+
+        Args:
+            max_size: Maximum number of translations to cache per language pair
+        """
         self._cache: Dict[str, Dict[str, str]] = {}
+        self._max_size = max_size
         self._lock = threading.RLock()
 
     def _get_cache_key(self, source_lang: str, target_lang: str) -> str:
@@ -45,6 +52,13 @@ class TranslationCache:
         with self._lock:
             if cache_key not in self._cache:
                 self._cache[cache_key] = {}
+
+            # Check if we need to evict old entries
+            if len(self._cache[cache_key]) >= self._max_size:
+                # Remove first entry (FIFO)
+                oldest_key = next(iter(self._cache[cache_key]))
+                del self._cache[cache_key][oldest_key]
+
             self._cache[cache_key][text] = translation
 
     def set_batch(
@@ -56,6 +70,13 @@ class TranslationCache:
         with self._lock:
             if cache_key not in self._cache:
                 self._cache[cache_key] = {}
+
+            # Check if we need to evict old entries
+            while len(self._cache[cache_key]) + len(translations) > self._max_size:
+                # Remove first entry (FIFO)
+                oldest_key = next(iter(self._cache[cache_key]))
+                del self._cache[cache_key][oldest_key]
+
             self._cache[cache_key].update(translations)
 
     def clear(

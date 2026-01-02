@@ -22,7 +22,6 @@ class TestTranslatorCore:
         assert translator.api_key == "test-key"
         assert translator.source == "en"
         assert translator.target == "fr"
-        assert translator.cache_enabled is True
 
     def test_init_with_all_params(self):
         """Test translator initialization with all parameters"""
@@ -30,22 +29,27 @@ class TestTranslatorCore:
             api_key="test-key",
             source_locale="es",
             target_locale="de",
-            cache_ttl=60,
-            cache_enabled=False,
-            shared_cache=False,
         )
         assert translator.api_key == "test-key"
         assert translator.source == "es"
         assert translator.target == "de"
         # assert translator.base_url == "https://autolocalise-main-53fde32.zuplo.app"
-        assert translator.timeout == 60
-        assert translator.cache_enabled is False
-        assert translator.shared_cache is False
+        assert translator.timeout == 30
 
     def test_init_without_api_key(self):
         """Test that initialization fails without API key"""
         with pytest.raises(ConfigurationError):
             Translator(api_key="", source_locale="en", target_locale="fr")
+
+    def test_init_without_source_locale(self):
+        """Test that initialization fails without source locale"""
+        with pytest.raises(ConfigurationError):
+            Translator(api_key="test-key", source_locale="", target_locale="fr")
+
+    def test_init_without_target_locale(self):
+        """Test that initialization fails without target locale"""
+        with pytest.raises(ConfigurationError):
+            Translator(api_key="test-key", source_locale="en", target_locale="")
 
     def test_set_languages(self):
         """Test changing source and target languages"""
@@ -57,17 +61,16 @@ class TestTranslatorCore:
         assert translator.source == "es"
         assert translator.target == "de"
 
-    def test_disabled_cache(self):
-        """Test translator with disabled cache"""
+    def test_cache_is_always_enabled(self):
+        """Test that cache is always enabled"""
         translator = Translator(
             api_key="test-key",
             source_locale="en",
             target_locale="fr",
-            cache_enabled=False,
         )
 
-        assert translator._cache is None
-        assert translator.cache_size() == 0
+        assert translator._cache is not None
+        assert translator.cache_size() >= 0
 
     def test_empty_text_handling(self):
         """Test handling of empty or whitespace-only text"""
@@ -78,6 +81,19 @@ class TestTranslatorCore:
         assert translator.translate([""]) == {"": ""}
         assert translator.translate(["   "]) == {"   ": "   "}
         assert translator.translate(["", "   "]) == {"": "", "   ": "   "}
+
+    def test_invalid_text_types(self):
+        """Test handling of invalid text types (non-strings)"""
+        translator = Translator(
+            api_key="test-key", source_locale="en", target_locale="fr"
+        )
+
+        # Non-string types should be skipped
+        assert translator.translate([123, None, [], {}]) == {}
+
+        # Mixed valid and invalid text
+        result = translator.translate(["Hello", 123, "World", None])
+        assert result == {"Hello": "Hello", "World": "World"}  # Fallback to original on API error
 
     def test_callable_interface(self):
         """Test that translator can be called directly"""
@@ -96,7 +112,6 @@ class TestTranslatorCore:
                 api_key="test-key",
                 source_locale="en",
                 target_locale="fr",
-                shared_cache=False,
             )
             result = translator(["Hello"])
 

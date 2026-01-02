@@ -33,7 +33,6 @@ class TestTranslationAPI:
             api_key="test-key",
             source_locale="en",
             target_locale="fr",
-            shared_cache=False,
         )
         result = translator.translate(["Hello"])
 
@@ -43,8 +42,8 @@ class TestTranslationAPI:
         # Verify the /v1/translations call
         mock_post.assert_any_call(
             "https://autolocalise-main-53fde32.zuplo.app/v1/translations",
-            json={"apiKey": "test-key", "targetLocale": "fr"},
-            timeout=3600,
+            json={"apiKey": "test-key", "targetLocale": "fr", "version": f"py-v{__version__}"},
+            timeout=30,
         )
 
         # Check that the /v1/translate call was made with hash-based format
@@ -74,6 +73,7 @@ class TestTranslationAPI:
         assert call_json["sourceLocale"] == "en"
         assert call_json["targetLocale"] == "fr"
         assert call_json["apiKey"] == "test-key"
+        assert call_json["version"] == f"py-v{__version__}"
 
     @patch("autolocalise.translator.requests.Session.post")
     def test_batch_translation(self, mock_post):
@@ -97,7 +97,6 @@ class TestTranslationAPI:
             api_key="test-key",
             source_locale="en",
             target_locale="fr",
-            shared_cache=False,
         )
         results = translator.translate(["Hello", "World"])
 
@@ -107,8 +106,8 @@ class TestTranslationAPI:
         # Verify the /v1/translations call
         mock_post.assert_any_call(
             "https://autolocalise-main-53fde32.zuplo.app/v1/translations",
-            json={"apiKey": "test-key", "targetLocale": "fr"},
-            timeout=3600,
+            json={"apiKey": "test-key", "targetLocale": "fr", "version": f"py-v{__version__}"},
+            timeout=30,
         )
 
         # Check that the /v1/translate call was made with hash-based format
@@ -151,15 +150,14 @@ class TestTranslationAPI:
             api_key="test-key",
             source_locale="en",
             target_locale="fr",
-            shared_cache=False,
         )
 
         # Should have called /v1/translations during initialization
         assert mock_post.call_count == 1
         mock_post.assert_called_with(
             "https://autolocalise-main-53fde32.zuplo.app/v1/translations",
-            json={"apiKey": "test-key", "targetLocale": "fr"},
-            timeout=3600,
+            json={"apiKey": "test-key", "targetLocale": "fr", "version": f"py-v{__version__}"},
+            timeout=30,
         )
 
         # Note: Cache won't be pre-populated since we don't know original texts for hashes
@@ -187,7 +185,6 @@ class TestTranslationAPI:
             api_key="test-key",
             source_locale="en",
             target_locale="fr",
-            shared_cache=False,
         )
 
         # Should fallback to original text on error
@@ -203,7 +200,6 @@ class TestTranslationAPI:
             api_key="test-key",
             source_locale="en",
             target_locale="fr",
-            shared_cache=False,
         )
 
         # Should fallback to original text on network error
@@ -228,7 +224,6 @@ class TestTranslationAPI:
             api_key="test-key",
             source_locale="en",
             target_locale="fr",
-            shared_cache=False,
         )
 
         # First translation - should hit API
