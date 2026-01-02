@@ -1,0 +1,78 @@
+name: Publish to TestPyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_target:
+        description: "Where to publish"
+        required: true
+        type: choice
+        options:
+          - "TestPyPI (for testing)"
+        default: "TestPyPI (for testing)"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Get version
+        id: get_version
+        run: |
+          VERSION=$(python -c "import re; content=open('autolocalise/_version.py').read(); print(re.search(r'__version__ = \"([^\"]*)\"', content).group(1))")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Building version: $VERSION"
+
+      - name: Build package
+        run: |
+          pip install build twine
+          python -m build
+          twine check dist/*
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ steps.get_version.outputs.version }}
+          path: dist/
+
+  publish-testpypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version
+        id: get_version
+        run: |
+          VERSION=$(python -c "import re; content=open('autolocalise/_version.py').read(); print(re.search(r'__version__ = \"([^\"]*)\"', content).group(1))")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-${{ steps.get_version.outputs.version }}
+          path: dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+
+      - name: TestPyPI Summary
+        run: |
+          echo "## 🧪 TestPyPI Published" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.get_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Install:** \`pip install -i https://test.pypi.org/simple/ autolocalise==${{ steps.get_version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**View:** https://test.pypi.org/project/autolocalise/${{ steps.get_version.outputs.version }}/" >> $GITHUB_STEP_SUMMARY
